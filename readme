@@ -6,10 +6,10 @@ This repository analyzes the Chicago Bears' 4th down decision-making strategy du
 
 The analysis uses the following libraries:
 
-- **`gt`**: For creating summary tables.
-- **`tidyverse`**: For data manipulation and visualization.
-- **`nfl4th`**: For accessing 4th down play-by-play data.
-- **`dplyr`**, **`DescTools`**, **`ggplot2`**, **`scales`**, **`glue`**, **`ggtext`**, **`ggthemes`**: Additional libraries for data manipulation and enhanced visualizations.
+- `gt`: For creating summary tables.
+- `tidyverse': For data manipulation and visualization.
+- `nfl4th`: For accessing 4th down play-by-play data.
+- `dplyr`,`DescTools`, `ggplot2`, `scales`, `glue`, `ggtext`, `ggthemes`: Additional libraries for data manipulation and enhanced visualizations.
 
 ## Data
 
@@ -22,15 +22,15 @@ pbp <- nfl4th::load_4th_pbp(2014:2024, fast = TRUE) %>%
 
 ## Graphs Included
 
-1. **Go-for-it Decision Curve**: A scatter plot showing the Bears' go-for-it percentage versus the expected win probability boost (`go_boost`), annotated with "should kick" and "should go for it" zones.
+1. Go-for-it Decision Curve: A scatter plot showing the Bears' go-for-it percentage versus the expected win probability boost (`go_boost`), annotated with "should kick" and "should go for it" zones.
    
-2. **Decision Breakdown by Recommendation**: A table summarizing the Bears' compliance with data-driven recommendations (e.g., "Definitely go for it," "Probably go for it") and the number of plays in each category.
+2. Decision Breakdown by Recommendation: A table summarizing the Bears' compliance with data-driven recommendations (e.g., "Definitely go for it," "Probably go for it") and the number of plays in each category.
 
-3. **Worst Kick Decisions**: A table highlighting the Bears' most costly kicking decisions, ranked by win probability loss.
+3. Worst Kick Decisions: A table highlighting the Bears' most costly kicking decisions, ranked by win probability loss.
 
-4. **Team Comparison**: A chart comparing the Bears' 4th down decision-making strategy to the Rams and Chargers, visualizing go-for-it percentage trends across different `go_boost` levels.
+4. Team Comparison: A chart comparing the Bears' 4th down decision-making strategy to the Rams and Chargers, visualizing go-for-it percentage trends across different `go_boost` levels.
 
-5. **Go Rate Timeline**: A line chart showing the Bears' improvement in 4th down decision-making from 2022 to 2024 compared to league averages.
+5. Go Rate Timeline: A line chart showing the Bears' improvement in 4th down decision-making from 2022 to 2024 compared to league averages.
 
 ## Acknowledgments
 
