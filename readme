@@ -4,8 +4,6 @@ This repository analyzes the Chicago Bears' 4th down decision-making strategy du
 
 ## Libraries Used
 
-The analysis uses the following libraries:
-
 - `gt`: For creating summary tables.
 - `tidyverse': For data manipulation and visualization.
 - `nfl4th`: For accessing 4th down play-by-play data.
@@ -13,7 +11,7 @@ The analysis uses the following libraries:
 
 ## Data
 
-The data includes 4th down plays from 2014 to 2024, filtered specifically for the 2024 Chicago Bears. It is loaded using the **nfl4th** package:
+The data includes 4th down plays from 2014 to 2024, filtered specifically for the 2024 Chicago Bears. It is loaded using the nfl4th package:
 
 ```r
 pbp <- nfl4th::load_4th_pbp(2014:2024, fast = TRUE) %>%
