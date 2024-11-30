@@ -34,4 +34,4 @@ pbp <- nfl4th::load_4th_pbp(2014:2024, fast = TRUE) %>%
 
 ## Acknowledgments
 
-The play-by-play data used in this analysis is sourced from the **nfl4th** package. The analysis and visualizations aim to evaluate how well the Bears leveraged analytics to inform critical 4th down decisions.
+The play-by-play data used in this analysis is sourced from the nfl4th package. 
