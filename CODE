@@ -1,0 +1,270 @@
+library(gt)
+library(tidyverse)
+library(nfl4th)
+library(dplyr)
+library(DescTools)
+library(ggplot2)
+library(scales)
+library(glue)
+library(ggtext)
+library(ggthemes)
+
+pbp <- nfl4th::load_4th_pbp(2014:2024, fast = T) %>%
+  filter(down == 4)
+###Chart1
+pbp %>%
+  dplyr::filter(season == 2024, posteam == "CHI") %>%
+  # Use base R rounding or DescTools::RoundTo
+  # For base R rounding to nearest 0.5
+  dplyr::mutate(go_boost = round(go_boost / 0.5) * 0.5) %>%
+  # If using DescTools::RoundTo
+  # dplyr::mutate(go_boost = DescTools::RoundTo(go_boost, 0.5)) %>%
+  dplyr::group_by(go_boost) %>%
+  dplyr::summarize(go = mean(go, na.rm = TRUE)) %>%
+  dplyr::ungroup() %>%
+  dplyr::filter(between(go_boost, -10, 10)) %>%
+  dplyr::mutate(
+    should_go = dplyr::case_when(
+      go_boost > 0.5 ~ 1,
+      go_boost < -0.5 ~ 0,
+      TRUE ~ 2
+    )
+  ) %>%
+  ggplot(aes(go_boost, go, color = as.factor(should_go))) +
+  geom_point(size = 5, color = "black", alpha = 0.5) +
+  geom_vline(xintercept = 0) +
+  geom_smooth(method = "lm", show.legend = FALSE, se = FALSE, linewidth = 3) +
+  theme_minimal() +  # Replaced theme_ben with theme_minimal()
+  labs(
+    x = "Gain in win probability by going for it (nfl4th)",
+    y = "Go-for-it percentage",
+    title = glue::glue("2024 Chicago Bears 4th Down Decision-Making"),
+    caption = "Graph by Lucas Qiu | Data from NFL4th"
+  ) +
+  scale_y_continuous(breaks = scales::pretty_breaks(n = 10), expand = c(0, 2)) +
+  scale_x_continuous(breaks = scales::pretty_breaks(n = 20), limits = c(-10, 10), expand = c(0, 0)) +
+  annotate("text", x = -4, y = 90, label = "Should\nkick", color = "red", size = 5) +
+  annotate("text", x = 3, y = 90, label = "Should\ngo for it", color = "red", size = 5) +
+  annotate("label", x = -6, y = 15, label = "Bears almost always kick\nwhen they should...", size = 5) +
+  annotate("label", x = 6, y = 25, label = "...but frequently\nkick when they\nshould go for it", size = 5)
+
+
+###Chart2
+pbp %>%
+  dplyr::filter(season == 2024, posteam == "CHI", !is.na(go_boost), !is.na(go)) %>%
+  dplyr::mutate(type = dplyr::case_when(
+    go_boost >= 4 ~ "Definitely go for it",
+    go_boost > 1 & go_boost < 4 ~ "Probably go for it",
+    go_boost >= -1 & go_boost <= 1 ~ "Toss-up",
+    go_boost < -1 & go_boost > -4 ~ "Probably kick",
+    go_boost <= -4 ~ "Definitely kick",
+    TRUE ~ "Other"
+  )) %>%
+  dplyr::group_by(type) %>%
+  dplyr::summarize(
+    go = mean(go, na.rm = TRUE),
+    n = dplyr::n()
+  ) %>%
+  dplyr::ungroup() %>%
+  dplyr::arrange(-go) %>%
+  gt() %>%
+  gt::cols_label(
+    type = "Recommendation",
+    go = "Went for it (%)",
+    n = "# of Plays"
+  ) %>%
+  # Apply conditional formatting
+  gt::tab_style(
+    style = gt::cell_fill(color = "green", alpha = 0.5),
+    locations = gt::cells_body(
+      columns = go,
+      rows = type %in% c("Definitely go for it", "Definitely kick")
+    )
+  ) %>%
+  gt::tab_style(
+    style = gt::cell_fill(color = "red", alpha = 0.5),
+    locations = gt::cells_body(
+      columns = go,
+      rows = type %in% c("Probably go for it", "Toss-up")
+    )
+  ) %>%
+  gt::tab_style(
+    style = cell_text(color = "black", weight = "bold"),
+    locations = cells_column_labels(everything())
+  ) %>%
+  gt::fmt_number(columns = go, decimals = 0) %>%
+  gt::cols_align(
+    align = "center",
+    columns = c(go, n)
+  ) %>%
+  gt::tab_header(title = "2024 Chicago Bears 4th Down Decision-Making by Go Recommendation") %>%
+  gt::tab_source_note(md('**Notes**: "Bears HC are highly responsive to strong recommendations but exhibit hesitation in borderline scenarios: (1) only 54% compliance with "Probably go for it." (2) Minimal aggressiveness (30%) in "Toss-up" situations.'))
+
+###Chart3
+pbp %>%
+  filter(
+    season == 2024,
+    posteam == "CHI",
+    go == 0,  # The team did not go for it
+    !is.na(go_boost)
+  ) %>%
+  arrange(desc(go_boost)) %>%
+  mutate(rank = row_number()) %>%
+  head(6) %>%
+  select(rank, posteam, defteam, week, qtr, ydstogo, score_differential, go_boost, desc) %>%
+  gt() %>%
+  cols_label(
+    rank = "", posteam = "Team", defteam = "Opp", week = "Week", qtr = "Qtr",
+    ydstogo = "YTG", score_differential = "Diff", desc = "Play", go_boost = "WP Loss"
+  ) %>%
+  tab_style(
+    style = cell_text(color = "black", weight = "bold"),
+    locations = cells_column_labels(everything())
+  ) %>%
+  text_transform(
+    locations = cells_body(vars(posteam, defteam)),
+    fn = function(x) {
+      web_image(url = paste0('https://a.espncdn.com/i/teamlogos/nfl/500/', x, '.png'))
+    }
+  ) %>%
+  cols_width(everything() ~ px(400)) %>%
+  cols_width(
+    vars(rank) ~ px(30), vars(go_boost) ~ px(80),
+    vars(posteam, defteam, week, score_differential, qtr, ydstogo) ~ px(50)
+  ) %>%
+  fmt_number(columns = vars(go_boost), decimals = 1) %>%
+  cols_align(columns = 1:8, align = "center") %>%
+  tab_header(title = "Chicago Bears Worst Kick Decisions of 2024",
+             subtitle = "Graph by Lucas Qiu | Data from NFL4th") %>%
+  tab_source_note(
+    source_note = "GLOSSARY: YTG (Yards to Go): The number of yards required for a first down on that fourth-down play."
+  )%>%
+  tab_source_note(
+    source_note = "Diff (Score Differential): The Bears' score relative to the opponent’s score at the time of the play. Negative values indicate that the Bears were trailing."
+  ) %>%
+  tab_source_note(
+    source_note = "WP Loss (Win Probability Loss): The estimated percentage loss in win probability caused by the decision to kick rather than go for it. For example, a WP Loss of 3.9 means the Bears chances of winning the game decreased by 3.9 percentage points due to this decision."
+  )
+
+###Chart4
+text_df <- tibble()
+pbp %>%
+  filter(
+    vegas_wp > 0.2,  # Filter plays with win probability > 20%
+    between(go_boost, -10, 10),  # Keep plays within a reasonable go_boost range
+    season == 2024,  # Focus on 2024 season
+    posteam %in% c("CHI", "LA", "LAC")  # Include Bears, Chiefs, and Ravens
+  ) %>%
+  mutate(
+    coach = case_when(
+      posteam == "CHI" ~ "Chicago Bears",
+      posteam == "LA" ~ "LA Rams",
+      posteam == "LAC" ~ "LA Chargers"
+    )
+  ) %>%
+  ggplot(aes(go_boost, go, color = coach)) + 
+  geom_vline(xintercept = 0) +
+  stat_smooth(
+    aes(color = coach),
+    method = "gam", 
+    method.args = list(gamma = 1), 
+    formula = y ~ s(x, bs = "cs", k = 10), 
+    show.legend = TRUE, se = FALSE, size = 2
+  ) +
+  geom_hline(yintercept = 100, alpha = 0) +
+  geom_hline(yintercept = 0, alpha = 0) +
+  theme_fivethirtyeight() +
+  labs(
+    x = "Gain in win probability by going for it",
+    y = "Go-for-it percentage",
+    subtitle = "4th down decisions for CHI, LA, LAC in 2024, win prob. > 20%",
+    title = glue::glue("Comparing 4th Down Decision-Making Among NFL Head Coaches (2024)")
+  ) +
+  theme(
+    legend.title = element_blank(),
+    legend.position = "top",
+    plot.title = element_markdown(size = 22, hjust = 0.5),
+    plot.subtitle = element_markdown(size = 14, hjust = 0.5),
+    axis.title.x = element_text(size = 14, face="bold"),
+    axis.title.y = element_text(size = 14, face="bold")
+  ) +
+  scale_y_continuous(breaks = scales::pretty_breaks(n = 4), expand = c(0, 0)) +
+  scale_x_continuous(breaks = scales::pretty_breaks(n = 10), limits = c(-10, 10), expand = c(0, 0)) +
+  annotate("text", x = -2, y = 75, label = "Should\nkick", color = "black", size = 5) +
+  annotate("text", x = 2, y = 75, label = "Should\ngo for it", color = "black", size = 5) +
+  geom_segment(
+    aes(x = -0.1, y = 80, xend = -2, yend = 80),
+    arrow = arrow(length = unit(0.05, "npc")),
+    color = "black", size = 1
+  ) +
+  geom_segment(
+    aes(x = 0.1, y = 80, xend = 2, yend = 80),
+    arrow = arrow(length = unit(0.05, "npc")),
+    color = "black", size = 1
+  )
+
+
+###Chart5
+# Function to make team timeline for seasons 2022 to 2024
+make_timeline <- function(team) {
+  
+  current <- pbp %>%
+    filter(
+      go_boost > 1.5,
+      !is.na(go),
+      !is.na(go_boost),
+      vegas_wp > .2,
+      season >= 2022,
+      season <= 2024
+    ) %>%
+    group_by(posteam, season) %>%
+    summarize(go = mean(go), n = n(), .groups = 'drop') %>%
+    left_join(nflfastR::teams_colors_logos, by = c('posteam' = 'team_abbr')) %>%
+    arrange(posteam, season)
+  
+  means <- current %>%
+    group_by(season) %>%
+    summarize(league_go = mean(go), .groups = 'drop')
+  
+  team_colors <- nflfastR::teams_colors_logos %>% filter(team_abbr == team)
+  prim <- team_colors$team_color
+  sec <- team_colors$team_color2
+  name <- team_colors$team_nick
+  
+  chart <- current %>% filter(posteam == team)
+  teams <- current %>% filter(posteam != team)
+  
+  my_title <- glue::glue("How often do the <span style='color:{prim}'>{name}</span> go for it when they <span style='color:{prim}'>should?</span>")
+  
+  fig <- ggplot(data = chart, aes(x = season, y = go)) +
+    geom_line(color = prim, size = 3) +
+    geom_point(color = sec, size = 8) +
+    geom_line(data = means, aes(x = season, y = league_go), color = "black", size = 1, linetype = "dashed", alpha = 0.6) +
+    geom_jitter(data = teams, aes(x = season, y = go), color = teams$team_color, size = 4, alpha = 0.6, width = 0.045) +
+    labs(
+      x = "",
+      y = "Go rate",
+      title = my_title,
+      subtitle = "Gain in win prob. at least 1.5 percentage points",
+      caption = "Excl. final 30 seconds of game. Win prob >20%"
+    ) +
+    scale_x_continuous(breaks = c(min(chart$season):max(chart$season))) +
+    scale_y_continuous(breaks = pretty_breaks(n = 10)) +
+    theme_minimal() +  # Replaced theme_ben with theme_minimal()
+    theme(
+      plot.title = element_markdown(size = 22, face = "bold"),
+      plot.subtitle = element_text(size = 18),
+      plot.caption = element_text(size = 14),
+      axis.title.y = element_text(size = 18),
+      axis.text.x = element_text(size = 16),
+      axis.text.y = element_text(size = 16),
+      panel.grid.minor.x = element_blank()
+    )
+  
+  return(fig)
+}
+# Bears Timeline from 2022 to 2024
+make_timeline("CHI")
+# CIN Timeline from 2022 to 2024
+make_timeline("CIN")
+
